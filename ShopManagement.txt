@@ -1,0 +1,168 @@
+#!/bin/bash
+
+# Function to generate a random voucher ID
+generate_voucher_id() {
+    voucher_id=$(date +%s | sha256sum | base64 | head -c 8)
+    echo "$voucher_id"
+}
+
+# Function to add customer details
+add_customer() {
+    clear
+    echo "Aarong Shop - Add Customer"
+    echo "--------------------------"
+    echo "Enter customer name: "
+    read customer_name
+    echo "Enter customer email: "
+    read customer_email
+
+    # Generate a unique customer ID (incremental)
+    customer_id=$(($(wc -l < customers.txt) + 1))
+
+    # Store customer details with ID in a file (you can use a database in a real system)
+    echo "$customer_id|$customer_name|$customer_email" >> customers.txt
+
+    echo "Customer added successfully! Customer ID: $customer_id"
+    read -p "Press Enter to continue..."
+}
+
+# Function to list customers
+list_customers() {
+    clear
+    echo "Aarong Shop - List of Customers"
+    echo "--------------------------------"
+    echo "Customer ID | Customer Name | Customer Email"
+    echo "--------------------------------"
+
+    # Display customer details from the file (you can use a database in a real system)
+    cat customers.txt
+
+    read -p "Press Enter to continue..."
+}
+
+# Function to add a product to inventory
+add_product() {
+    clear
+    echo "Aarong Shop - Add Product to Inventory"
+    echo "-------------------------------------"
+    echo "Enter product code: "
+    read product_code
+    echo "Enter product name: "
+    read product_name
+    echo "Enter product size: "
+    read product_size
+    echo "Enter initial stock quantity: "
+    read stock_quantity
+    echo "Enter product price: "
+    read product_price
+
+    # Store product details in the inventory file (you can use a database in a real system)
+    echo "$product_code|$product_name|$product_size|$stock_quantity|$product_price" >> inventory.txt
+
+    echo "Product added to inventory successfully!"
+    read -p "Press Enter to continue..."
+}
+
+# Function to list available products in inventory
+list_inventory() {
+    clear
+    echo "Aarong Shop - Inventory"
+    echo "-----------------------"
+    echo "Product Code | Product Name | Size | Stock Quantity | Price"
+    echo "-----------------------------------------------------------"
+
+    # Display product details from the inventory file (you can use a database in a real system)
+    cat inventory.txt
+
+    read -p "Press Enter to continue..."
+}
+
+# Function to record a sale
+record_sale() {
+    clear
+    echo "Aarong Shop - Record Sale"
+    echo "--------------------------"
+    echo "Enter customer email: "
+    read customer_email
+    echo "Enter product code: "
+    read product_code
+    echo "Enter product size: "
+    read product_Size
+    echo "Enter quantity sold: "
+    read quantity_sold
+
+    # Check if the product is available in inventory
+    product_info=$(grep "^$product_code|" inventory.txt)
+
+    if [ -z "$product_info" ]; then
+        echo "Product not found in inventory."
+    else
+        # Extract product details
+        product_name=$(echo "$product_info" | cut -d '|' -f 2)
+        product_size=$(echo "$product_info" | cut -d '|' -f 3)
+        stock_quantity=$(echo "$product_info" | cut -d '|' -f 4)
+        product_price=$(echo "$product_info" | cut -d '|' -f 5)
+
+        # Check if there is enough stock
+        if [ "$quantity_sold" -le "$stock_quantity" ]; then
+            # Update stock quantity in inventory
+            new_stock_quantity=$((stock_quantity - quantity_sold))
+            sed -i "s/^$product_code|.*|.*|.*|.*$/$product_code|$product_name|$product_size|$new_stock_quantity|$product_price/" inventory.txt
+
+            # Generate a unique voucher ID (random)
+            voucher_id=$(generate_voucher_id)
+
+            # Store sales details in a file (you can use a database in a real system)
+            echo "$customer_email|$voucher_id|$product_code|$product_name|$product_Size|$quantity_sold|$product_price" >> sales.txt
+
+            # Send a voucher email (you need to configure email sending)
+            echo "Dear $customer_email, you've purchased $quantity_sold units of $product_name (Size: $product_size) for $((product_price * quantity_sold)). Here's your voucher ID: $voucher_id" | mail -s "Your Aarong Voucher" $customer_email
+
+            echo "Sale recorded and voucher sent successfully! Voucher ID: $voucher_id"
+        else
+            echo "Insufficient stock. Available stock: $stock_quantity"
+        fi
+    fi
+
+    read -p "Press Enter to continue..."
+}
+
+# Function to view sales records
+view_sales_records() {
+    clear
+    echo "Aarong Shop - Sales Records"
+    echo "---------------------------"
+    echo "Customer Email | Voucher ID | Product Code | Product Name | Size | Quantity Sold | Total Price"
+    echo "------------------------------------------------------------------------------------------"
+
+    # Display sales records from the file (you can use a database in a real system)
+    cat sales.txt
+
+    read -p "Press Enter to continue..."
+}
+
+# Main menu
+while true; do
+    clear
+    echo "Aarong Shop - Main Menu"
+    echo "-----------------------"
+    echo "1. Add Customer"
+    echo "2. Record Sale"
+    echo "3. List Customers"
+    echo "4. Add Product to Inventory"
+    echo "5. List Inventory"
+    echo "6. View Sales Records"
+    echo "7. Exit"
+    read -p "Enter your choice(1/2/3/4/5/6/7): "choice
+
+    case $choice in
+        1) add_customer ;;
+        2) record_sale ;;
+        3) list_customers ;;
+        4) add_product ;;
+        5) list_inventory ;;
+        6) view_sales_records ;;
+        7) exit ;;
+        *) echo "Invalid choice" ;;
+    esac
+done
